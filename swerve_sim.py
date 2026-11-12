@@ -7,7 +7,10 @@ import math
 import os
 import random
 import sys
+import time
 from collections import deque
+
+from spacemouse_hid import HIDSpaceMouse
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 os.environ.setdefault("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
@@ -205,7 +208,7 @@ def snap_dir(v, snap_deg):
 
 # ---------------------------------------------------------------- input
 class SpaceMouseInput:
-    """Reads the SpaceMouse through SDL (DirectInput on Windows, IOKit HID on macOS).
+    """Reads through SDL, with a direct HID fallback on macOS.
     Axis order: Tx Ty Tz Rx Ry Rz, each -1..1 (SDL normalises the HID logical range)."""
 
     def __init__(self):
@@ -214,7 +217,10 @@ class SpaceMouseInput:
         self.scan()
 
     def scan(self):
+        if self.joy is not None:
+            self.joy.quit()
         self.joy = None
+        self.last_scan = time.monotonic()
         self.name = "SpaceMouse 未找到"
         for i in range(pygame.joystick.get_count()):
             j = pygame.joystick.Joystick(i)
@@ -232,14 +238,30 @@ class SpaceMouseInput:
                 self.name = f"SpaceMouse (#{i}, {j.get_numaxes()} axes)"
                 return
 
+        if sys.platform == "darwin":
+            try:
+                self.joy = HIDSpaceMouse.open()
+                if self.joy is not None:
+                    self.name = f"{self.joy.name} (HID, 6 axes)"
+            except ImportError:
+                self.name = "缺少 hidapi: 请重新安装 requirements.txt"
+            except OSError:
+                self.name = "HID 被占用/无权限: 退出 3DconnexionHelper，检查输入监控"
+
     def read(self):
+        if self.joy is None and time.monotonic() - self.last_scan > 2.0:
+            self.scan()
         if self.joy is None:
             return [0.0] * 6, [False, False]
         try:
+            if isinstance(self.joy, HIDSpaceMouse):
+                self.joy.poll()
             axes = [clamp(self.joy.get_axis(i), -1.0, 1.0) for i in range(6)]
             btns = [bool(self.joy.get_button(b)) for b in range(min(2, self.joy.get_numbuttons()))]
-        except pygame.error:
+        except (pygame.error, OSError):
+            self.joy.quit()
             self.joy = None
+            self.name = "SpaceMouse 已断开，正在重新扫描"
             return [0.0] * 6, [False, False]
         return axes, btns + [False] * (2 - len(btns))
 

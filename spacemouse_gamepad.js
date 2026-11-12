@@ -49,6 +49,7 @@
   };
 
   const zero = () => {
+    held.clear();
     bridgeBtns = [];
     pad.axes = [0, 0, 0, 0];
     compose();
@@ -68,7 +69,7 @@
   };
   const onKey = (down) => (e) => {
     const b = KEYS[e.code];
-    if (!enabled || b === undefined || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (!enabled || !online || b === undefined || e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     e.stopImmediatePropagation();
     e.preventDefault();

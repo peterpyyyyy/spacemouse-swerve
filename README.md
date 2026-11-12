@@ -88,13 +88,16 @@ SpaceMouse 帽子既能**推**（pan）也能**倾斜**（tilt），人手推的
 `V` 临时反转旋转，`- =` 反死区（抵消网页模拟器自带的 0.1 死区），`Space` 暂停输出，`R` 重新扫描设备，其余同上。
 
 推荐 Chrome / Edge。Safari 未测试。
+J/K 等按键需要浏览器游戏页面获得焦点；吸球和射球需在游戏允许手动操作的阶段使用。
 
 ## macOS 注意事项
 
-- SpaceMouse 通过 SDL 的 IOKit HID（Multi-axis Controller）读取，**不需要** 3DxWare 驱动。
+- 优先通过 SDL 读取；SDL 未识别时自动通过 `hidapi` 直接读取六轴 HID 数据，**不需要** 3DxWare 驱动。
+  已在 Apple Silicon Mac + Python 3.13 + SpaceMouse Wireless BT（USB 连接）上验证。
   如果窗口显示 “SpaceMouse 未找到”：
-  1. 确认接收器/线已插好，按 `R` 重新扫描；
-  2. 退出 3DxWare（菜单栏 3Dconnexion 图标 → 退出，或在“活动监视器”结束 `3DconnexionHelper`）后再按 `R`；
+  1. 确认接收器/线已插好；桥接窗口按 `R` 重新扫描，无设备时也会每两秒自动重试；
+  2. 退出 3DxWare（菜单栏 3Dconnexion 图标 → 退出，或在“活动监视器”结束 `3DconnexionHelper`）。
+     实测该后台程序会占用 HID，退出后才能直接打开设备；使用结束后可重新打开 `/Applications/3DconnexionHelper.app`；
   3. 系统设置 → 隐私与安全性 → **输入监控**，给“终端”（或你用的 Python）打勾，然后重启程序。
 - 装了 3DxWare 的话，它可能让 SpaceMouse 同时在 Chrome 里滚动/缩放页面：
   在 3Dconnexion 设置里为 Chrome 关掉导航，或玩的时候退出 3DxWare。
@@ -104,7 +107,10 @@ SpaceMouse 帽子既能**推**（pan）也能**倾斜**（tilt），人手推的
 
 ```
 swerve_sim.py          本地模拟器 + 共用的输入处理 / 3D 视图
+spacemouse_hid.py      macOS 直接 HID 读取（SDL 未识别时自动回退）
 spacemouse_bridge.py   WebSocket 桥接 (ws://127.0.0.1:8765/ws) + 状态窗口
 spacemouse_gamepad.js  注入网页的虚拟手柄 (覆盖 navigator.getGamepads)
 run_*.command / .bat   一键启动脚本
 ```
+
+Mac 实测结果与复查命令见 [MACOS_VALIDATION.md](MACOS_VALIDATION.md)。
