@@ -1,116 +1,65 @@
 # SpaceMouse Swerve
 
-用 3Dconnexion SpaceMouse 开 FRC swerve 底盘：想看看 6 自由度的输入设备有没有比手柄更好的操控手感。
+Drive an FRC swerve simulator with a 3Dconnexion SpaceMouse.
 
-包含两个程序：
+[简体中文](README.zh-CN.md) · [macOS validation](MACOS_VALIDATION.md) · [MIT license](LICENSE)
 
-| 程序 | 作用 |
-|---|---|
-| `swerve_sim.py` | 本地 swerve 手感模拟器（俯视场地 + SpaceMouse 3D 姿态 + 定位挑战），以及**方向校准向导** |
-| `spacemouse_bridge.py` | 把 SpaceMouse 变成浏览器里的**虚拟 Xbox 手柄**，用来玩网页版 FRC 模拟器（如 [REBUILT Sim 2026](https://tylerhandel.github.io/rebuilt-sim-2026/)、[frc4206.com](https://www.frc4206.com/)） |
+The Mac desktop app puts the game, controller connection, tuning and live 3D device pose in one window. It bundles Python and Chromium: no Terminal, bookmarklet or browser extension is needed.
 
-纯 Python + pygame，支持 **Windows / macOS**（Linux 理论可用）。
+![SpaceMouse Swerve desktop app](assets/app-preview.png)
 
-## 安装运行
+## Mac app
 
-需要 Python 3.9+。
+[Download v1.0.0-beta.1 for Apple Silicon](https://github.com/peterpyyyyy/spacemouse-swerve/releases/tag/v1.0.0-beta.1).
 
-**macOS**：双击 `run_bridge.command`（桥接）或 `run_sim.command`（本地模拟器）。
-首次运行会自动建 `.venv` 并安装依赖。
-- 如果提示“无法打开/来自身份不明的开发者”：右键 → 打开；或在终端执行
-  `chmod +x *.command && xattr -dr com.apple.quarantine .`
-- 没有 Python：`xcode-select --install`，或从 python.org 安装。
+1. Install the official **3DxWare for macOS** and connect your SpaceMouse. **Leave 3DconnexionHelper running.** The app uses the installed driver API so the cap does not become a desktop mouse.
+2. Open **SpaceMouse Swerve.app** and let the game load.
+3. Use your mouse to navigate the game's menus. SpaceMouse input unlocks in the gameplay view, and locks again in menus and pause screens.
+4. Click the game to focus it. Push/tilt to translate, twist to rotate. Hold **J** to intake, **K** to shoot, **L** to pass, and **;** to eject during manual play.
 
-**Windows**：双击 `run_bridge.bat` / `run_sim.bat`。
+Use **Settings** to collapse the left panel, **3D pose** to show/hide the corner overlay, and the language menu to switch the app between Chinese and English. These choices persist across launches. The embedded third-party game retains its own menus.
 
-**手动**：
+**Calibrate / practice** opens the local simulator; press **K** there for direction calibration. Closing practice returns control to the embedded game. User calibration and settings live in `~/Library/Application Support/SpaceMouse Swerve`, outside the app bundle.
+
+The packaged build targets **Apple Silicon, macOS 14+**. It is locally ad-hoc signed, **not Apple notarized**. Test evidence currently covers a SpaceMouse Wireless BT over USB on one Apple Silicon Mac with 3DxWare installed. Bluetooth, other device models and Intel builds have not been validated. Online games require internet access.
+
+## Run or build from source
+
 ```bash
-python3 -m pip install -r requirements.txt
-python3 swerve_sim.py          # 本地模拟器
-python3 spacemouse_bridge.py   # 浏览器桥接
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-app.txt
+.venv/bin/python macos_app.py
 ```
 
-## 输入处理（两个程序共用）
+Build the standalone arm64 app on an Apple Silicon Mac:
 
-SpaceMouse 帽子既能**推**（pan）也能**倾斜**（tilt），人手推的时候两者几乎必然混在一起。
-处理流程：方向校准 → 动态死区解耦（扭转时抑制平移泄漏，反之亦然）→ pan/tilt 融合 → 轴吸附（可选）→ expo。
-
-融合模式（数字键 1-5）：
-
-| 模式 | 说明 |
-|---|---|
-| PAN | 只用推 |
-| TILT | 只用倾斜 |
-| **FUSE**（默认） | 方向 = pan+tilt 的合向量，幅值 = 两者较大值，不会叠加超速 |
-| SUM | 直接相加（对照组） |
-| DOMINANT | 取较大的源，带迟滞 |
-
-**第一次用先做校准**：在 `swerve_sim.py` 里按 `K`，按提示依次往 前/右/后/左 推、再倾斜，
-结果存到 `calibration.json`，桥接程序会自动加载。（每台设备、每个人手法不同，所以不进仓库。）
-
-## swerve_sim.py 按键
-
-| 键 | 功能 |
-|---|---|
-| K / L | 校准向导 / 开关校准 |
-| 1-5 | 融合模式 |
-| G | 轴吸附 ±15° |
-| F | field / robot oriented |
-| C | 动态死区解耦 |
-| 7 8 / 9 0 | 扭转灵敏度 / 旋转最大速度 |
-| [ ] / ; ' | 死区 / expo |
-| N M / , . | pan 增益 / tilt 增益 |
-| - = | 速度上限 |
-| I O | 反转 pitch / roll |
-| T / X | 定位挑战 / 清空成绩 |
-| Z / Space / Tab / H / Esc | 航向归零 / 重置 / 键盘↔SpaceMouse / 帮助 / 退出 |
-
-## 浏览器桥接
-
-1. 运行 `spacemouse_bridge.py`，浏览器打开 <http://127.0.0.1:8765/>。
-2. 把绿色按钮拖到书签栏（Windows `Ctrl+Shift+B` / Mac `Cmd+Shift+B` 显示书签栏）。
-   书签只是个加载器，代码从本机桥接加载，更新后不用重新拖。
-3. 打开模拟器页面，点书签，左下角出现 `● SM` 即连接成功。
-   浏览器若询问“允许访问本地网络/设备”，选**允许**（Chrome/Edge 的 Local Network Access）。
-4. 再点一次书签或徽标 = 关闭。
-
-映射：左摇杆 = 平移，右摇杆 X = 旋转。SpaceMouse 自带按键**不映射**（按下会晃动帽子，还会弹出 3Dconnexion 菜单）。
-左手 SpaceMouse，右手键盘：
-
-| 键 | 手柄按键 | REBUILT Sim 2026 |
-|---|---|---|
-| J | LT | 吸球 |
-| K | RT | 射球 |
-| L | RB | 传球 |
-| ; | LB | 吐球 |
-
-桥接窗口按键：`P` 切换模拟器预设（REBUILT / frc4206，后者的 3D 视图旋转是镜像的，预设已反转），
-`V` 临时反转旋转，`- =` 反死区（抵消网页模拟器自带的 0.1 死区），`Space` 暂停输出，`R` 重新扫描设备，其余同上。
-
-推荐 Chrome / Edge。Safari 未测试。
-J/K 等按键需要浏览器游戏页面获得焦点；吸球和射球需在游戏允许手动操作的阶段使用。
-
-## macOS 注意事项
-
-- 优先通过 SDL 读取；SDL 未识别时自动通过 `hidapi` 直接读取六轴 HID 数据，**不需要** 3DxWare 驱动。
-  已在 Apple Silicon Mac + Python 3.13 + SpaceMouse Wireless BT（USB 连接）上验证。
-  如果窗口显示 “SpaceMouse 未找到”：
-  1. 确认接收器/线已插好；桥接窗口按 `R` 重新扫描，无设备时也会每两秒自动重试；
-  2. 退出 3DxWare（菜单栏 3Dconnexion 图标 → 退出，或在“活动监视器”结束 `3DconnexionHelper`）。
-     实测该后台程序会占用 HID，退出后才能直接打开设备；使用结束后可重新打开 `/Applications/3DconnexionHelper.app`；
-  3. 系统设置 → 隐私与安全性 → **输入监控**，给“终端”（或你用的 Python）打勾，然后重启程序。
-- 装了 3DxWare 的话，它可能让 SpaceMouse 同时在 Chrome 里滚动/缩放页面：
-  在 3Dconnexion 设置里为 Chrome 关掉导航，或玩的时候退出 3DxWare。
-- 方向反了（例如倾斜方向）先重新做一次 `K` 校准；扭转反了在桥接里按 `V`。
-
-## 文件
-
-```
-swerve_sim.py          本地模拟器 + 共用的输入处理 / 3D 视图
-spacemouse_hid.py      macOS 直接 HID 读取（SDL 未识别时自动回退）
-spacemouse_bridge.py   WebSocket 桥接 (ws://127.0.0.1:8765/ws) + 状态窗口
-spacemouse_gamepad.js  注入网页的虚拟手柄 (覆盖 navigator.getGamepads)
-run_*.command / .bat   一键启动脚本
+```bash
+./tools/build_macos_app.sh
+# dist/SpaceMouse Swerve.app
 ```
 
-Mac 实测结果与复查命令见 [MACOS_VALIDATION.md](MACOS_VALIDATION.md)。
+The app loads the installed 3Dconnexion client framework at runtime; it does not redistribute that proprietary framework. Qt, Python and other bundled dependencies retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Existing standalone tools
+
+- `swerve_sim.py`: local top-down swerve simulator, direction calibration and 3D input visualization.
+- `spacemouse_bridge.py`: local WebSocket + bookmarklet bridge for an external browser.
+- `run_*.command` / `run_*.bat`: source launchers.
+
+These tools use `requirements.txt`; the large desktop dependencies are optional. On macOS with 3DxWare installed they read through the driver API. The raw HID fallback is experimental on systems without the vendor framework. Windows/Linux desktop app builds are not provided.
+
+The default FUSE mode blends pan and tilt direction while taking the larger magnitude, avoiding doubled speed. PAN, TILT, SUM and DOMINANT modes remain available.
+
+## Checks
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+node tests/test_gamepad.cjs
+.venv/bin/python -m pip check
+```
+
+The Python tests cover HID reports, driver lifecycle and state paths; the JavaScript checks cover keyboard release, focus loss, pause, disconnect and menu input locking. They supplement real-device testing and do not replace it.
+
+## Credits
+
+The embedded game is [REBUILT Sim 2026 by Tyler Handel](https://github.com/tylerhandel/rebuilt-sim-2026); the second preset opens [frc4206.com](https://www.frc4206.com/). Their code/assets are loaded from their own servers and are not part of this repository or app bundle. This project is not affiliated with 3Dconnexion, FIRST or those simulator authors.

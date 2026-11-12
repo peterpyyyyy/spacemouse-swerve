@@ -12,7 +12,7 @@
     vibrationActuator: null, hapticActuators: [],
   };
   const origGet = navigator.getGamepads.bind(navigator);
-  let enabled = true, online = false, ws = null, lastMsg = 0, perm = '';
+  let enabled = true, online = false, ws = null, lastMsg = 0, perm = '', inputPaused = false;
   const checkPerm = async () => {
     for (const n of ['local-network-access', 'loopback-network']) {
       try { perm = (await navigator.permissions.query({ name: n })).state; return; } catch (e) { /* unknown name */ }
@@ -69,7 +69,9 @@
   };
   const onKey = (down) => (e) => {
     const b = KEYS[e.code];
-    if (!enabled || !online || b === undefined || e.ctrlKey || e.altKey || e.metaKey) return;
+    // Release even if modifiers/focus changed since keydown.
+    if (!down && b !== undefined) { held.delete(b); compose(); }
+    if (!enabled || !online || inputPaused || b === undefined || e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     e.stopImmediatePropagation();
     e.preventDefault();
@@ -80,15 +82,31 @@
   window.addEventListener('keyup', onKey(false), true);
   window.addEventListener('blur', () => { held.clear(); compose(); });
 
+  const receive = (d) => {
+    const native = window.__smNativeBridge;
+    const blocked = !!(native?.controlsAllowed && !native.controlsAllowed());
+    if (native) native.blocked = blocked;
+    inputPaused = !!d.paused || blocked;
+    if (inputPaused) held.clear();
+    pad.axes = inputPaused ? [0, 0, 0, 0] : d.a;
+    bridgeBtns = inputPaused ? [] : d.b;
+    compose();
+    lastMsg = pad.timestamp;
+  };
   const connect = () => {
+    // The desktop app delivers frames directly inside its own WebEngine view.
+    // No server, localhost permission, extension or bookmarklet is needed there.
+    if (window.__smNativeBridge) {
+      window.__smNativeBridge.receive = receive;
+      online = true;
+      lastMsg = performance.now();
+      paint();
+      return;
+    }
     try { ws = new WebSocket(WS_URL); } catch (e) { setTimeout(connect, 1000); return; }
     ws.onopen = () => { online = true; paint(); };
     ws.onmessage = (m) => {
-      const d = JSON.parse(m.data);
-      pad.axes = d.a;
-      bridgeBtns = d.b;
-      compose();
-      lastMsg = pad.timestamp;
+      receive(JSON.parse(m.data));
     };
     ws.onclose = () => { online = false; zero(); checkPerm().then(paint); setTimeout(connect, 1000); };
     ws.onerror = () => { try { ws.close(); } catch (e) { /* ignore */ } };

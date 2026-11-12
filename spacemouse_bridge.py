@@ -18,6 +18,7 @@ import math
 import os
 import sys
 import threading
+from runtime_paths import state_path
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 os.environ.setdefault("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
@@ -41,7 +42,7 @@ def arg(name, default, cast):
 
 
 PORT = arg("--port", 8765, int)
-SETTINGS_PATH = os.path.join(HERE, "bridge_settings.json")
+SETTINGS_PATH = state_path("bridge_settings.json")
 
 
 def load_settings():

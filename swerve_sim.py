@@ -11,6 +11,8 @@ import time
 from collections import deque
 
 from spacemouse_hid import HIDSpaceMouse
+from spacemouse_driver import DriverSpaceMouse, FRAMEWORK
+from runtime_paths import state_path
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 os.environ.setdefault("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
@@ -126,7 +128,7 @@ def shrink(vec, thr):
 
 
 CAL_DIRS = [("前", V2(0, 1)), ("右", V2(1, 0)), ("后", V2(0, -1)), ("左", V2(-1, 0))]
-CAL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calibration.json")
+CAL_PATH = state_path("calibration.json")
 
 
 class Calibration:
@@ -153,7 +155,7 @@ class Calibration:
             for k in ("pan", "tilt"):
                 if d.get(k) and self.valid([V2(v) for v in d[k]]):
                     self.data[k] = [V2(v) for v in d[k]]
-        except (OSError, ValueError, TypeError):
+        except (OSError, ValueError, TypeError, AttributeError):
             pass
 
     def save(self):
@@ -222,6 +224,15 @@ class SpaceMouseInput:
         self.joy = None
         self.last_scan = time.monotonic()
         self.name = "SpaceMouse 未找到"
+        if sys.platform == 'darwin' and FRAMEWORK.exists():
+            try:
+                self.joy = DriverSpaceMouse.open()
+                if self.joy is not None:
+                    self.name = self.joy.name
+                    return
+            except OSError:
+                self.name = '请打开 3Dconnexion 设置后重试'
+            return
         for i in range(pygame.joystick.get_count()):
             j = pygame.joystick.Joystick(i)
             guid = j.get_guid().lower()
@@ -254,7 +265,9 @@ class SpaceMouseInput:
         if self.joy is None:
             return [0.0] * 6, [False, False]
         try:
-            if isinstance(self.joy, HIDSpaceMouse):
+            if isinstance(self.joy, (HIDSpaceMouse,DriverSpaceMouse)):
+                if isinstance(self.joy,DriverSpaceMouse):
+                    self.joy.set_active(True)
                 self.joy.poll()
             axes = [clamp(self.joy.get_axis(i), -1.0, 1.0) for i in range(6)]
             btns = [bool(self.joy.get_button(b)) for b in range(min(2, self.joy.get_numbuttons()))]

@@ -5,3 +5,6 @@ __pycache__/
 # per-user / per-device state
 calibration.json
 bridge_settings.json
+build/
+dist/
+app_settings.json

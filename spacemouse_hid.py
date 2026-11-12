@@ -21,6 +21,14 @@ class HIDSpaceMouse:
     @classmethod
     def open(cls):
         import hid
+        import sys
+        if sys.platform == 'darwin':
+            # Suppress macOS treating this multi-axis HID as a system mouse.
+            # The Cython wrapper doesn't expose this HIDAPI platform function.
+            import ctypes
+            library = ctypes.CDLL(hid.__file__)
+            library.hid_darwin_set_open_exclusive.argtypes = [ctypes.c_int]
+            library.hid_darwin_set_open_exclusive(1)
 
         for info in hid.enumerate():
             name = info.get("product_string") or "SpaceMouse"
