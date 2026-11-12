@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+# per-user / per-device state
+calibration.json
+bridge_settings.json

@@ -1,0 +1,2 @@
+pygame>=2.1
+websockets>=13.0
